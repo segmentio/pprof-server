@@ -153,7 +153,6 @@ func (h *Handler) serveProfile(res http.ResponseWriter, req *http.Request) {
 		"-svg",
 		"-symbolize",
 		"remote",
-		serviceURL,
 	}
 
 	for flag, values := range queryString {
@@ -166,10 +165,12 @@ func (h *Handler) serveProfile(res http.ResponseWriter, req *http.Request) {
 		}
 	}
 
+	args = append(args, serviceURL)
+
 	buffer := &bytes.Buffer{}
 	buffer.Grow(32768)
 
-	pprof := exec.Command("go", args...)
+	pprof := exec.CommandContext(req.Context(), "go", args...)
 	pprof.Stdin = nil
 	pprof.Stdout = buffer
 	pprof.Stderr = log.NewWriter("", 0, events.DefaultHandler)
@@ -225,31 +226,35 @@ func (h *Handler) fetchService(ctx context.Context, name string, endpoint string
 		},
 	)
 
-	// For heap profiles, inject the options for capturing the allocated objects
-	// or the allocated space.
 	for i, p := range prof {
-		path, query := splitPathQuery(p.URL)
+		// For heap profiles, inject the options for capturing the allocated objects
+		// or the allocated space.
+		if path, _ := splitPathQuery(p.URL); path == "heap" {
+			prof[i].Name = p.Name + " (objects in use)"
+			prof[i].URL = baseURL + p.URL
+			prof[i].Href = "/profile?inuse_objects&url=" + url.QueryEscape(prof[i].URL)
 
-		if path == "heap" {
-			q1, _ := url.ParseQuery(query)
-			q1["alloc_objecs"] = nil
-
-			q2, _ := url.ParseQuery(query)
-			q2["alloc_space"] = nil
-
-			prof[i].Name = p.Name + " (objects)"
-			prof[i].URL = path + "?" + q1.Encode()
-
-			prof = append(prof, profile{
-				Name: p.Name + " (space)",
-				URL:  path + "?" + q2.Encode(),
-			})
+			prof = append(prof,
+				profile{
+					Name: p.Name + " (space in use)",
+					URL:  baseURL + p.URL,
+					Href: "/profile?inuse_space&url=" + url.QueryEscape(prof[i].URL),
+				},
+				profile{
+					Name: p.Name + " (objects allocated)",
+					URL:  baseURL + p.URL,
+					Href: "/profile?alloc_objects&url=" + url.QueryEscape(prof[i].URL),
+				},
+				profile{
+					Name: p.Name + " (space allocated)",
+					URL:  baseURL + p.URL,
+					Href: "/profile?alloc_space&url=" + url.QueryEscape(prof[i].URL),
+				},
+			)
+		} else {
+			prof[i].URL = baseURL + p.URL
+			prof[i].Href = "/profile?url=" + url.QueryEscape(prof[i].URL)
 		}
-	}
-
-	for i, p := range prof {
-		prof[i].URL = baseURL + p.URL
-		prof[i].Href = "/profile?url=" + url.QueryEscape(prof[i].URL)
 	}
 
 	return
