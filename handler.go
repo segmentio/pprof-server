@@ -218,11 +218,11 @@ func (h *Handler) fetchService(ctx context.Context, name string, endpoint string
 	prof = append(prof,
 		profile{
 			Name: "profile",
-			URL:  "/profile?seconds=5",
+			URL:  "profile?seconds=5",
 		},
 		profile{
 			Name: "trace",
-			URL:  "/trace?seconds=5",
+			URL:  "trace?seconds=5",
 		},
 	)
 
