@@ -5,6 +5,10 @@ machine:
     - docker
 
 dependencies:
+  pre:
+    # get ECR credentials
+    - pip install awscli==1.11.76
+    - $(aws ecr get-login --region $AWS_REGION)
   override:
     - docker pull segment/golang:1.9
 
@@ -31,5 +35,7 @@ deployment:
     tag: /.*/
     commands:
       - docker tag segment/pprof-server segment/pprof-server:${CIRCLE_TAG}
+      - docker tag segment/pprof-server:latest $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/pprof-server:${CIRCLE_TAG}
       - docker login -e ${DOCKER_EMAIL} -u ${DOCKER_USER} -p ${DOCKER_PASS}
       - docker push segment/pprof-server
+      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/pprof-server:${CIRCLE_TAG}
