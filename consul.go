@@ -25,6 +25,20 @@ func (r *ConsulRegistry) ListServices(ctx context.Context) ([]string, error) {
 	return list, nil
 }
 
-func (r *ConsulRegistry) LookupService(ctx context.Context, name string) ([]string, error) {
-	return consul.LookupHost(ctx, name)
+func (r *ConsulRegistry) LookupService(ctx context.Context, name string) (Service, error) {
+	svc := Service{}
+
+	endpoints, err := consul.LookupService(ctx, name)
+	if err != nil {
+		return svc, err
+	}
+
+	svc.Hosts = make([]Host, 0, len(endpoints))
+	for _, endpoint := range endpoints {
+		svc.Hosts = append(svc.Hosts, Host{
+			Addr: endpoint.Addr,
+			Tags: endpoint.Tags,
+		})
+	}
+	return svc, nil
 }

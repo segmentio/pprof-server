@@ -24,11 +24,6 @@ type Handler struct {
 	Client   *http.Client
 }
 
-type Registry interface {
-	ListServices(ctx context.Context) ([]string, error)
-	LookupService(ctx context.Context, name string) ([]string, error)
-}
-
 func (h *Handler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	header := res.Header()
 	header.Set("Content-Language", "en")
@@ -55,6 +50,9 @@ func (h *Handler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		h.serveListServices(res, req)
 
 	case strings.HasPrefix(path, "/services/"):
+		h.serveListNodes(res, req)
+
+	case strings.HasPrefix(path, "/service/"):
 		h.serveLookupService(res, req)
 
 	default:
@@ -90,43 +88,47 @@ func (h *Handler) serveListServices(res http.ResponseWriter, req *http.Request) 
 	render(res, req, listServices, services)
 }
 
-func (h *Handler) serveLookupService(res http.ResponseWriter, req *http.Request) {
-	var ctx = req.Context()
+func (h *Handler) serveListNodes(res http.ResponseWriter, req *http.Request) {
 	var name = strings.TrimPrefix(path.Clean(req.URL.Path), "/services/")
 	var srv service
 
 	if h.Registry != nil {
-		endpoints, _ := h.Registry.LookupService(ctx, name)
-		profchan := make(chan []profile, len(endpoints))
-
-		for _, ep := range endpoints {
-			go func(ep string) {
-				p, err := h.fetchService(ctx, name, ep)
-				profchan <- p
-				if err != nil {
-					events.Log("error fetching service profiles of %{service}s (%{endpoint}s): %{error}s", name, ep, err)
-				}
-			}(ep)
-		}
-
-		for range endpoints {
-			p := <-profchan
-			srv.Profiles = append(srv.Profiles, p...)
-		}
-	}
-
-	if len(srv.Profiles) == 0 {
-		p, err := h.fetchService(ctx, name, name) // try with DNS
+		srvRegistry, err := h.Registry.LookupService(req.Context(), name)
 		if err != nil {
-			events.Log("error fetching service profiles of %{service}s: %{error}s", name, err)
-		} else {
-			srv.Profiles = append(srv.Profiles, p...)
+			events.Log("error listing nodes: %{error}s", err)
+		}
+
+		srv.Nodes = make([]node, 0, len(srvRegistry.Hosts))
+		for _, host := range srvRegistry.Hosts {
+			srv.Nodes = append(srv.Nodes, node{
+				Endpoint: fmt.Sprintf("%s %s", host.Addr, strings.Join(host.Tags, " - ")),
+				Href:     "/service/" + host.Addr.String(),
+			})
 		}
 	}
 
-	sort.Slice(srv.Profiles, func(i int, j int) bool {
-		p1 := srv.Profiles[i]
-		p2 := srv.Profiles[j]
+	srv.Name = name
+	srv.Href = "/services/" + name
+	render(res, req, listNodes, srv)
+}
+
+func (h *Handler) serveLookupService(res http.ResponseWriter, req *http.Request) {
+	var ctx = req.Context()
+	var endpoint = strings.TrimPrefix(path.Clean(req.URL.Path), "/service/")
+	var n node
+
+	if h.Registry != nil {
+		p, err := h.fetchService(ctx, endpoint)
+		if err != nil {
+			events.Log("error fetching service profiles of %{service}s: %{error}s", endpoint, err)
+		} else {
+			n.Profiles = append(n.Profiles, p...)
+		}
+	}
+
+	sort.Slice(n.Profiles, func(i int, j int) bool {
+		p1 := n.Profiles[i]
+		p2 := n.Profiles[j]
 
 		if p1.Name != p2.Name {
 			return p1.Name < p2.Name
@@ -134,10 +136,7 @@ func (h *Handler) serveLookupService(res http.ResponseWriter, req *http.Request)
 
 		return p1.URL < p2.URL
 	})
-
-	srv.Name = name
-	srv.Href = "/services/" + name
-	render(res, req, lookupService, srv)
+	render(res, req, lookupService, n)
 }
 
 func (h *Handler) serveFlame(res http.ResponseWriter, req *http.Request) {
@@ -227,7 +226,7 @@ func (h *Handler) serveRawProfile(w http.ResponseWriter, r *http.Request, url st
 	res.Body.Close()
 }
 
-func (h *Handler) fetchService(ctx context.Context, name string, endpoint string) (prof []profile, err error) {
+func (h *Handler) fetchService(ctx context.Context, endpoint string) (prof []profile, err error) {
 	var req *http.Request
 	var res *http.Response
 	var baseURL = endpoint + h.prefix()
@@ -311,7 +310,14 @@ func (h *Handler) prefix() string {
 }
 
 type service struct {
+	Name  string `json:"name"`
+	Href  string `json:"href"`
+	Nodes []node `json:"nodes,omitempty"`
+}
+
+type node struct {
 	Name     string    `json:"name"`
+	Endpoint string    `json:"endpoint"`
 	Href     string    `json:"href"`
 	Profiles []profile `json:"profiles,omitempty"`
 }

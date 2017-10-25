@@ -62,6 +62,7 @@ func main() {
 			events.Log("no registry is configured")
 		case "consul":
 			consul.DefaultClient.Address = u.Host
+			consul.DefaultResolver.Balancer = nil
 			registry = &pprofserver.ConsulRegistry{}
 			events.Log("using consul registry at %{address}s", u.Host)
 		default:
