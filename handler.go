@@ -45,8 +45,11 @@ func (h *Handler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	case path == "/", path == "/services":
 		h.serveRedirect(res, req, "/services/")
 
-	case path == "/profile":
-		h.serveProfile(res, req)
+	case path == "/tree":
+		h.serveTree(res, req)
+
+	case path == "/flame":
+		h.serveFlame(res, req)
 
 	case path == "/services/":
 		h.serveListServices(res, req)
@@ -137,7 +140,7 @@ func (h *Handler) serveLookupService(res http.ResponseWriter, req *http.Request)
 	render(res, req, lookupService, srv)
 }
 
-func (h *Handler) serveProfile(res http.ResponseWriter, req *http.Request) {
+func (h *Handler) serveFlame(res http.ResponseWriter, req *http.Request) {
 	queryString := req.URL.Query()
 	serviceURL := queryString.Get("url")
 	queryString.Del("url")
@@ -146,6 +149,38 @@ func (h *Handler) serveProfile(res http.ResponseWriter, req *http.Request) {
 		res.WriteHeader(http.StatusNotFound)
 		return
 	}
+
+	raw, err := h.getRawProfile(serviceURL)
+	if err != nil {
+		res.WriteHeader(http.StatusBadGateway)
+		events.Log("error querying %{url}s: %{error}s", serviceURL, err)
+		return
+	}
+	defer raw.Close()
+
+	if err := renderFlamegraph(res, raw); err != nil {
+		res.WriteHeader(http.StatusBadGateway)
+		events.Log("error rendering flame graph: %{error}s", err)
+	}
+}
+
+func (h *Handler) serveTree(res http.ResponseWriter, req *http.Request) {
+	queryString := req.URL.Query()
+	serviceURL := queryString.Get("url")
+	queryString.Del("url")
+
+	if len(serviceURL) == 0 {
+		res.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	raw, err := h.getRawProfile(serviceURL)
+	if err != nil {
+		res.WriteHeader(http.StatusBadGateway)
+		events.Log("error querying %{url}s: %{error}s", serviceURL, err)
+		return
+	}
+	defer raw.Close()
 
 	args := []string{
 		"tool",
@@ -180,15 +215,13 @@ func (h *Handler) serveProfile(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	r1, _ := http.NewRequest(http.MethodGet, serviceURL, nil)
-	r2, err := h.client().Do(r1)
-	if err != nil {
-		res.WriteHeader(http.StatusBadGateway)
-		events.Log("error querying %{url}s: %{error}s", serviceURL, err)
-		return
-	}
-	io.Copy(res, r2.Body)
-	r2.Body.Close()
+	io.Copy(res, raw)
+}
+
+func (h *Handler) getRawProfile(url string) (io.ReadCloser, error) {
+	req, _ := http.NewRequest(http.MethodGet, url, nil)
+	resp, err := h.client().Do(req)
+	return resp.Body, err
 }
 
 func (h *Handler) fetchService(ctx context.Context, name string, endpoint string) (prof []profile, err error) {
@@ -232,28 +265,28 @@ func (h *Handler) fetchService(ctx context.Context, name string, endpoint string
 		if path, _ := splitPathQuery(p.URL); path == "heap" {
 			prof[i].Name = p.Name + " (objects in use)"
 			prof[i].URL = baseURL + p.URL
-			prof[i].Href = "/profile?inuse_objects&url=" + url.QueryEscape(prof[i].URL)
+			prof[i].Params = "inuse_objects&url=" + url.QueryEscape(prof[i].URL)
 
 			prof = append(prof,
 				profile{
-					Name: p.Name + " (space in use)",
-					URL:  baseURL + p.URL,
-					Href: "/profile?inuse_space&url=" + url.QueryEscape(prof[i].URL),
+					Name:   p.Name + " (space in use)",
+					URL:    baseURL + p.URL,
+					Params: "inuse_space&url=" + url.QueryEscape(prof[i].URL),
 				},
 				profile{
-					Name: p.Name + " (objects allocated)",
-					URL:  baseURL + p.URL,
-					Href: "/profile?alloc_objects&url=" + url.QueryEscape(prof[i].URL),
+					Name:   p.Name + " (objects allocated)",
+					URL:    baseURL + p.URL,
+					Params: "alloc_objects&url=" + url.QueryEscape(prof[i].URL),
 				},
 				profile{
-					Name: p.Name + " (space allocated)",
-					URL:  baseURL + p.URL,
-					Href: "/profile?alloc_space&url=" + url.QueryEscape(prof[i].URL),
+					Name:   p.Name + " (space allocated)",
+					URL:    baseURL + p.URL,
+					Params: "alloc_space&url=" + url.QueryEscape(prof[i].URL),
 				},
 			)
 		} else {
 			prof[i].URL = baseURL + p.URL
-			prof[i].Href = "/profile?url=" + url.QueryEscape(prof[i].URL)
+			prof[i].Params = "url=" + url.QueryEscape(prof[i].URL)
 		}
 	}
 
@@ -281,9 +314,9 @@ type service struct {
 }
 
 type profile struct {
-	Name string `json:"name"`
-	URL  string `json:"url"`
-	Href string `json:"href"`
+	Name   string `json:"name"`
+	URL    string `json:"url"`
+	Params string `json:"params"`
 }
 
 func render(res http.ResponseWriter, req *http.Request, tpl *template.Template, val interface{}) {
