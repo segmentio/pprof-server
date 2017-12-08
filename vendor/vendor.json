@@ -129,6 +129,18 @@
 			"revisionTime": "2017-07-18T14:45:31Z"
 		},
 		{
+			"checksumSHA1": "iNK4ggTVtiGJP+6eGWS2To0lkFw=",
+			"path": "github.com/uber/go-torch/stack",
+			"revision": "ddbe52cdc30e6a165aee3a634c597e01a235e85e",
+			"revisionTime": "2017-07-18T14:45:31Z"
+		},
+		{
+			"checksumSHA1": "Pysj3Pw61VKRU8jUmkbtK5neNRU=",
+			"path": "github.com/uber/go-torch/torchlog",
+			"revision": "ddbe52cdc30e6a165aee3a634c597e01a235e85e",
+			"revisionTime": "2017-07-18T14:45:31Z"
+		},
+		{
 			"checksumSHA1": "vqc3a+oTUGX8PmD0TS+qQ7gmN8I=",
 			"path": "golang.org/x/net/html",
 			"revision": "66aacef3dd8a676686c7ae3716979581e8b03c47",
