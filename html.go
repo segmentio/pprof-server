@@ -25,16 +25,11 @@ var lookupService = htmlTemplate(`
 		<a href="/services">&lt;&lt; Services</a>
 	</p>
 	<table>
-		<th>
-			<tr>
-				<td>Profile</td>
-				<td>URL</td>
-			</tr>
-		</th>
 		<tbody>{{ range .Profiles }}
 			<tr>
 				<td>{{ .Name }}</td>
-				<td><a href="{{ .Href }}">{{ .URL }}</a></td>
+				<td><a href="/tree{{ .Params }}">Tree</a></td>
+				<td><a href="/flame{{ .Params }}">Flamegraph</a></td>
 			</tr>
 		{{ end }}</tbody>
 	</table>
