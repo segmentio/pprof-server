@@ -3,22 +3,23 @@ package pprofserver
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
+	"os/exec"
 	"strings"
 
 	"github.com/uber/go-torch/pprof"
 	"github.com/uber/go-torch/renderer"
 )
 
-func renderFlamegraph(w io.Writer, r io.Reader, title string, pprofArgs []string) error {
-	raw, err := ioutil.ReadAll(r)
+func renderFlamegraph(w io.Writer, url string, pprofArgs []string) error {
+	c := exec.Command("go", "tool", "pprof", "-raw", url)
+	raw, err := c.Output()
 	if err != nil {
-		return fmt.Errorf("read pprof output: %v", err)
+		return fmt.Errorf("get raw pprof data: %v", err)
 	}
 
 	profile, err := pprof.ParseRaw(raw)
 	if err != nil {
-		return fmt.Errorf("parse pprof output: %v", err)
+		return fmt.Errorf("parse raw pprof output: %v", err)
 	}
 
 	sampleIndex := pprof.SelectSample(pprofArgs, profile.SampleNames)
@@ -27,6 +28,7 @@ func renderFlamegraph(w io.Writer, r io.Reader, title string, pprofArgs []string
 		return fmt.Errorf("convert stacks to flamegraph input: %v", err)
 	}
 
+	title := url
 	if len(pprofArgs) > 0 {
 		title = fmt.Sprintf("%s (%s)", title, strings.Join(pprofArgs, " "))
 	}

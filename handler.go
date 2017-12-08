@@ -149,15 +149,7 @@ func (h *Handler) serveFlame(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	rawRes, err := h.client().Get(serviceURL)
-	if err != nil {
-		res.WriteHeader(http.StatusBadGateway)
-		events.Log("error querying %{url}s: %{error}s", serviceURL, err)
-		return
-	}
-	defer rawRes.Body.Close()
-
-	if err := renderFlamegraph(res, rawRes.Body, serviceURL, query2pprofArgs(queryString)); err != nil {
+	if err := renderFlamegraph(res, serviceURL, query2pprofArgs(queryString)); err != nil {
 		res.WriteHeader(http.StatusInternalServerError)
 		events.Log("error generating flamegraph: %{error}s", err)
 	}
