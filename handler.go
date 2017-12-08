@@ -34,8 +34,7 @@ func (h *Handler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	header.Set("Server", "pprof-server")
 
 	switch req.Method {
-	case http.MethodGet:
-	case http.MethodHead:
+	case http.MethodGet, http.MethodHead:
 	default:
 		http.Error(res, "only GET and HEAD are allowed", http.StatusMethodNotAllowed)
 		return
@@ -150,18 +149,21 @@ func (h *Handler) serveFlame(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	raw, err := h.getRawProfile(serviceURL)
+	rawRes, err := h.client().Get(serviceURL)
 	if err != nil {
 		res.WriteHeader(http.StatusBadGateway)
 		events.Log("error querying %{url}s: %{error}s", serviceURL, err)
 		return
 	}
-	defer raw.Close()
+	defer rawRes.Body.Close()
 
-	if err := renderFlamegraph(res, raw); err != nil {
-		res.WriteHeader(http.StatusBadGateway)
-		events.Log("error rendering flame graph: %{error}s", err)
+	if err := renderFlamegraph(res, rawRes.Body, serviceURL, query2pprofArgs(queryString)); err == nil {
+		return
 	}
+
+	// failed to render a graph; fall back to serving the raw profile
+	h.serveRawProfile(res, req, serviceURL)
+
 }
 
 func (h *Handler) serveTree(res http.ResponseWriter, req *http.Request) {
@@ -174,14 +176,6 @@ func (h *Handler) serveTree(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	raw, err := h.getRawProfile(serviceURL)
-	if err != nil {
-		res.WriteHeader(http.StatusBadGateway)
-		events.Log("error querying %{url}s: %{error}s", serviceURL, err)
-		return
-	}
-	defer raw.Close()
-
 	args := []string{
 		"tool",
 		"pprof",
@@ -190,16 +184,7 @@ func (h *Handler) serveTree(res http.ResponseWriter, req *http.Request) {
 		"remote",
 	}
 
-	for flag, values := range queryString {
-		if len(values) == 0 {
-			args = append(args, "-"+flag)
-		} else {
-			for _, value := range values {
-				args = append(args, "-"+flag, value)
-			}
-		}
-	}
-
+	args = append(args, query2pprofArgs(queryString)...)
 	args = append(args, serviceURL)
 
 	buffer := &bytes.Buffer{}
@@ -215,13 +200,32 @@ func (h *Handler) serveTree(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	io.Copy(res, raw)
+	// failed to render a graph; fall back to serving the raw profile
+	h.serveRawProfile(res, req, serviceURL)
 }
 
-func (h *Handler) getRawProfile(url string) (io.ReadCloser, error) {
-	req, _ := http.NewRequest(http.MethodGet, url, nil)
-	resp, err := h.client().Do(req)
-	return resp.Body, err
+func query2pprofArgs(q url.Values) (args []string) {
+	for flag, values := range q {
+		if len(values) == 0 {
+			args = append(args, "-"+flag)
+		} else {
+			for _, value := range values {
+				args = append(args, "-"+flag, value)
+			}
+		}
+	}
+	return
+}
+
+func (h *Handler) serveRawProfile(w http.ResponseWriter, r *http.Request, url string) {
+	res, err := h.client().Get(url)
+	if err != nil {
+		w.WriteHeader(http.StatusBadGateway)
+		events.Log("error querying %{url}s: %{error}s", url, err)
+		return
+	}
+	io.Copy(w, res.Body)
+	res.Body.Close()
 }
 
 func (h *Handler) fetchService(ctx context.Context, name string, endpoint string) (prof []profile, err error) {
@@ -265,28 +269,28 @@ func (h *Handler) fetchService(ctx context.Context, name string, endpoint string
 		if path, _ := splitPathQuery(p.URL); path == "heap" {
 			prof[i].Name = p.Name + " (objects in use)"
 			prof[i].URL = baseURL + p.URL
-			prof[i].Params = "inuse_objects&url=" + url.QueryEscape(prof[i].URL)
+			prof[i].Params = "?inuse_objects&url=" + url.QueryEscape(prof[i].URL)
 
 			prof = append(prof,
 				profile{
 					Name:   p.Name + " (space in use)",
 					URL:    baseURL + p.URL,
-					Params: "inuse_space&url=" + url.QueryEscape(prof[i].URL),
+					Params: "?inuse_space&url=" + url.QueryEscape(prof[i].URL),
 				},
 				profile{
 					Name:   p.Name + " (objects allocated)",
 					URL:    baseURL + p.URL,
-					Params: "alloc_objects&url=" + url.QueryEscape(prof[i].URL),
+					Params: "?alloc_objects&url=" + url.QueryEscape(prof[i].URL),
 				},
 				profile{
 					Name:   p.Name + " (space allocated)",
 					URL:    baseURL + p.URL,
-					Params: "alloc_space&url=" + url.QueryEscape(prof[i].URL),
+					Params: "?alloc_space&url=" + url.QueryEscape(prof[i].URL),
 				},
 			)
 		} else {
 			prof[i].URL = baseURL + p.URL
-			prof[i].Params = "url=" + url.QueryEscape(prof[i].URL)
+			prof[i].Params = "?url=" + url.QueryEscape(prof[i].URL)
 		}
 	}
 
