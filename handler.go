@@ -163,7 +163,6 @@ func (h *Handler) serveFlame(res http.ResponseWriter, req *http.Request) {
 
 	// failed to render a graph; fall back to serving the raw profile
 	h.serveRawProfile(res, req, serviceURL)
-
 }
 
 func (h *Handler) serveTree(res http.ResponseWriter, req *http.Request) {
