@@ -157,12 +157,10 @@ func (h *Handler) serveFlame(res http.ResponseWriter, req *http.Request) {
 	}
 	defer rawRes.Body.Close()
 
-	if err := renderFlamegraph(res, rawRes.Body, serviceURL, query2pprofArgs(queryString)); err == nil {
-		return
+	if err := renderFlamegraph(res, rawRes.Body, serviceURL, query2pprofArgs(queryString)); err != nil {
+		res.WriteHeader(http.StatusInternalServerError)
+		events.Log("error generating flamegraph: %{error}s", err)
 	}
-
-	// failed to render a graph; fall back to serving the raw profile
-	h.serveRawProfile(res, req, serviceURL)
 }
 
 func (h *Handler) serveTree(res http.ResponseWriter, req *http.Request) {
