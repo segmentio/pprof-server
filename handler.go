@@ -3,6 +3,7 @@ package pprofserver
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"html/template"
 	"io"
 	"net/http"
@@ -159,7 +160,7 @@ func (h *Handler) serveFlame(res http.ResponseWriter, req *http.Request) {
 	}
 
 	if err := renderFlamegraph(res, serviceURL, sampleType); err != nil {
-		res.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintln(res, "Unable to generate flame graph for this profile 🤯")
 		events.Log("error generating flamegraph: %{error}s", err)
 	}
 }
