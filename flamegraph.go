@@ -10,7 +10,8 @@ import (
 	"github.com/uber/go-torch/renderer"
 )
 
-func renderFlamegraph(w io.Writer, url string, pprofArgs []string) error {
+func renderFlamegraph(w io.Writer, url, sampleType string) error {
+	// Get the raw pprof data
 	c := exec.Command("go", "tool", "pprof", "-raw", url)
 	raw, err := c.Output()
 	if err != nil {
@@ -22,21 +23,38 @@ func renderFlamegraph(w io.Writer, url string, pprofArgs []string) error {
 		return fmt.Errorf("parse raw pprof output: %v", err)
 	}
 
-	sampleIndex := pprof.SelectSample(pprofArgs, profile.SampleNames)
+	// Select a sample type from the profile (bytes allocated, objects allocated, etc.)
+	var args []string
+	if sampleType != "" {
+		args = append(args, "-"+sampleType)
+	}
+	sampleIndex := pprof.SelectSample(args, profile.SampleNames)
 	flameInput, err := renderer.ToFlameInput(profile, sampleIndex)
 	if err != nil {
 		return fmt.Errorf("convert stacks to flamegraph input: %v", err)
 	}
 
+	// Construct graph title
 	title := url
-	if len(pprofArgs) > 0 {
-		title = fmt.Sprintf("%s (%s)", title, strings.Join(pprofArgs, " "))
+	if sampleType != "" {
+		title = fmt.Sprintf("%s (%s)", url, sampleType)
 	}
-	flameGraph, err := renderer.GenerateFlameGraph(flameInput, "--title", title)
+
+	// Try to find reasonable units
+	unit := "samples"
+	if strings.Contains(sampleType, "space") {
+		unit = "bytes"
+	} else if strings.Contains(sampleType, "objects") {
+		unit = "objects"
+	}
+
+	// Render the graph
+	flameGraph, err := renderer.GenerateFlameGraph(flameInput, "--title", title, "--countname", unit)
 	if err != nil {
 		return fmt.Errorf("generate flame graph: %v", err)
 	}
 
+	// Write the graph to the response
 	if _, err := w.Write(flameGraph); err != nil {
 		return fmt.Errorf("write flamegraph SVG: %v", err)
 	}

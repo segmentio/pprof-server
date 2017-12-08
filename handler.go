@@ -149,7 +149,16 @@ func (h *Handler) serveFlame(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if err := renderFlamegraph(res, serviceURL, query2pprofArgs(queryString)); err != nil {
+	// Find the sample type (objects allocated, objects in use, etc)
+	sampleType := ""
+	for arg := range queryString {
+		if arg != "url" {
+			sampleType = arg
+			break
+		}
+	}
+
+	if err := renderFlamegraph(res, serviceURL, sampleType); err != nil {
 		res.WriteHeader(http.StatusInternalServerError)
 		events.Log("error generating flamegraph: %{error}s", err)
 	}
