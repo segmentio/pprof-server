@@ -8,16 +8,21 @@ import (
 	"path"
 	"strings"
 
+	"github.com/segmentio/events"
 	"github.com/uber/go-torch/pprof"
 	"github.com/uber/go-torch/renderer"
 )
 
-func supportsFlamegraph(fullUrl string) bool {
-	fullParsed, err := url.Parse(fullUrl)
+func supportsFlamegraph(params string) bool {
+	if strings.HasPrefix(params, "?") {
+		params = params[1:]
+	}
+	query, err := url.ParseQuery(params)
 	if err != nil {
+		events.Log("flamegraph support check: params=%{params}q: %{error}s", params, err)
 		return false
 	}
-	pprofUrl := fullParsed.Query().Get("url")
+	pprofUrl := query.Get("url")
 	pprofParsed, err := url.Parse(pprofUrl)
 	if err != nil {
 		return false

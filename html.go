@@ -28,7 +28,7 @@ var lookupService = htmlTemplate("lookupService", `
 		<tbody>{{ range .Profiles }}
 			<tr>
 				<td>{{ .Name }}</td>
-				{{- if supportsFlamegraph .URL}}
+				{{- if supportsFlamegraph .Params}}
 				<td><a href="/tree{{ .Params }}">Tree</a></td>
 				<td><a href="/flame{{ .Params }}">Flamegraph</a></td>
 				{{- else}}
