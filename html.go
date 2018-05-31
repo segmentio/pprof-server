@@ -2,7 +2,7 @@ package pprofserver
 
 import "html/template"
 
-var listServices = htmlTemplate(`
+var listServices = htmlTemplate("listServices", `
 <html>
 <head>
 	<title>Service List</title>
@@ -15,7 +15,7 @@ var listServices = htmlTemplate(`
 </html>
 `)
 
-var lookupService = htmlTemplate(`
+var lookupService = htmlTemplate("lookupService", `
 <html>
 <head>
 	<title>{{ .Name }}</title>
@@ -28,8 +28,12 @@ var lookupService = htmlTemplate(`
 		<tbody>{{ range .Profiles }}
 			<tr>
 				<td>{{ .Name }}</td>
+				{{- if supportsFlamegraph .URL}}
 				<td><a href="/tree{{ .Params }}">Tree</a></td>
 				<td><a href="/flame{{ .Params }}">Flamegraph</a></td>
+				{{- else}}
+				<td><a href="/tree{{ .Params }}">Profile</a></td>
+				{{- end}}
 			</tr>
 		{{ end }}</tbody>
 	</table>
@@ -37,7 +41,7 @@ var lookupService = htmlTemplate(`
 </html>
 `)
 
-var listNodes = htmlTemplate(`
+var listNodes = htmlTemplate("listNodes", `
 <html>
 <head>
 	<title>{{ .Name }}</title>
@@ -62,6 +66,11 @@ var listNodes = htmlTemplate(`
 </html>
 `)
 
-func htmlTemplate(s string) *template.Template {
-	return template.Must(template.New("").Parse(s))
+func htmlTemplate(name, s string) *template.Template {
+	funcMap := template.FuncMap{
+		"supportsFlamegraph": supportsFlamegraph,
+	}
+	tmpl := template.New(name).Funcs(funcMap)
+
+	return template.Must(tmpl.Parse(s))
 }
