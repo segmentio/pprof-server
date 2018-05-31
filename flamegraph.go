@@ -12,18 +12,21 @@ import (
 	"github.com/uber/go-torch/renderer"
 )
 
-func supportsFlamegraph(urlString string) bool {
-	parsed, err := url.Parse(urlString)
+func supportsFlamegraph(fullUrl string) bool {
+	fullParsed, err := url.Parse(fullUrl)
 	if err != nil {
 		return false
 	}
-	queryString := parsed.Query()
-	pprofUrl := queryString.Get("url")
-	switch path.Base(pprofUrl) {
+	pprofUrl := fullParsed.Query().Get("url")
+	pprofParsed, err := url.Parse(pprofUrl)
+	if err != nil {
+		return false
+	}
+	switch path.Base(pprofParsed.Path) {
 	case "profile", "heap", "block", "mutex":
 		return true
 	case "goroutine":
-		return queryString.Get("debug") == "1"
+		return pprofParsed.Query().Get("debug") == "1"
 	}
 	return false
 }
