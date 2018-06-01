@@ -6,6 +6,7 @@ var listServices = htmlTemplate("listServices", `
 <html>
 <head>
 	<title>Service List</title>
+	<style>a {text-decoration: none;}</style>
 </head>
 <body>
 	<ul>{{ range . }}
@@ -19,6 +20,7 @@ var lookupService = htmlTemplate("lookupService", `
 <html>
 <head>
 	<title>{{ .Name }}</title>
+	<style>a {text-decoration: none;}</style>
 </head>
 <body>
 	<p>
@@ -45,6 +47,7 @@ var listNodes = htmlTemplate("listNodes", `
 <html>
 <head>
 	<title>{{ .Name }}</title>
+	<style>a {text-decoration: none;}</style>
 </head>
 <body>
 	<p>
