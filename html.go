@@ -29,10 +29,10 @@ var lookupService = htmlTemplate("lookupService", `
 			<tr>
 				<td>{{ .Name }}</td>
 				{{- if supportsFlamegraph .Params}}
-				<td><a href="/tree{{ .Params }}">Tree</a></td>
-				<td><a href="/flame{{ .Params }}">Flamegraph</a></td>
+				<td><a href="/tree{{ .Params }}">🌲</a></td>
+				<td><a href="/flame{{ .Params }}">🔥</a></td>
 				{{- else}}
-				<td><a href="/tree{{ .Params }}">Profile</a></td>
+				<td><a href="/tree{{ .Params }}">📜</a></td>
 				{{- end}}
 			</tr>
 		{{ end }}</tbody>
