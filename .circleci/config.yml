@@ -21,7 +21,7 @@ jobs:
       - run:
           name: Publish Docker Image
           command: |
-            tag=$(git rev-parse --short=7 HEAD)
+            tag=${CIRCLE_TAG:-circleci-$CIRCLE_BUILD_NUM}
 
             ecr_image=528451384384.dkr.ecr.us-west-2.amazonaws.com/pprof-server:${tag}
             hub_image=segment/pprof-server:${tag}
@@ -40,7 +40,4 @@ workflows:
   run:
     jobs:
       - build
-      - publish:
-          requires: [build]
-          filters:
-            branches: { only: master }
+      - publish
