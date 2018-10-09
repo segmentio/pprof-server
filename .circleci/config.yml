@@ -2,7 +2,7 @@ version: 2
 jobs:
   build:
     docker:
-      - image: segment/circelci-golang:1.11.1
+      - image: segment/circleci-golang:1.11.1
         environment:
           GO111MODULE: 'on'
     steps:
