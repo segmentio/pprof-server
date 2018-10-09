@@ -13,7 +13,7 @@ jobs:
     docker:
       - image: segment/circleci-golang:1.11.1
     steps:
-      - setup_remote_docker
+      - setup_remote_docker: { reusable: true, docker_layer_caching: true }
       - checkout
       - run:
           name: Build pprof-server
