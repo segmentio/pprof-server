@@ -1,0 +1,43 @@
+version: 2
+jobs:
+  build:
+    docker:
+      - image: segment/circelci-golang:1.11.1
+        environment:
+          GO111MODULE: 'on'
+    steps:
+      - checkout
+      - run: go test ./...
+
+  publish:
+    docker:
+      - image: segment/circleci-golang:1.11.1
+    steps:
+      - setup_remote_docker
+      - checkout
+      - run:
+          name: Publish Docker Image
+          command: |
+            tag=$(git rev-parse --short=7 HEAD)
+
+            ecr_image=528451384384.dkr.ecr.us-west-2.amazonaws.com/pprof-server:${tag}
+            hub_image=segment/pprof-server:${tag}
+
+            $(aws ecr get-login --no-include-email --region ${AWS_REGION})
+            docker build -t pprof-server -f Dockerfile .
+
+            docker tag pprof-server ${ecr_image}
+            docker tag pprof-server ${hub_image}
+
+            docker push ${ecr_image}
+            docker push ${hub_image}
+
+workflows:
+  version: 2
+  run:
+    jobs:
+      - build
+      - publish:
+          requires: [build]
+          filters:
+            branches: { only: master }

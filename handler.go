@@ -187,6 +187,7 @@ func (h *Handler) serveTree(res http.ResponseWriter, req *http.Request) {
 
 	buffer := &bytes.Buffer{}
 	buffer.Grow(32768)
+	events.Log("go " + strings.Join(args, " "))
 
 	pprof := exec.CommandContext(req.Context(), "go", args...)
 	pprof.Stdin = nil
@@ -229,13 +230,13 @@ func (h *Handler) serveRawProfile(w http.ResponseWriter, r *http.Request, url st
 func (h *Handler) fetchService(ctx context.Context, endpoint string) (prof []profile, err error) {
 	var req *http.Request
 	var res *http.Response
-	var baseURL = endpoint + h.prefix()
+	var prefix = h.prefix()
 
-	if !strings.Contains(baseURL, "://") {
-		baseURL = "http://" + baseURL
+	if !strings.Contains(endpoint, "://") {
+		endpoint = "http://" + endpoint
 	}
 
-	if req, err = http.NewRequest(http.MethodGet, baseURL, nil); err != nil {
+	if req, err = http.NewRequest(http.MethodGet, endpoint+"/debug/pprof/", nil); err != nil {
 		return
 	}
 
@@ -250,21 +251,24 @@ func (h *Handler) fetchService(ctx context.Context, endpoint string) (prof []pro
 
 	// For some reason the default profiles aren't returned by the /debug/pprof/
 	// home page.
-	prof = append(prof,
-		profile{
-			Name: "profile",
-			URL:  "profile?seconds=5",
-		},
-		profile{
-			Name: "trace",
-			URL:  "trace?seconds=5",
-		},
-	)
+	//
+	// Update: In Go 1.11 the profile and trace endpoints are now exposed by the
+	// index.
+	hasProfile := false
+	hasTrace := false
 
 	for i, p := range prof {
+		fullPath, _ := splitPathQuery(p.URL)
+		name := path.Base(fullPath)
+		baseURL := endpoint
+
+		if !strings.HasPrefix(fullPath, "/") {
+			baseURL += prefix
+		}
+
 		// For heap profiles, inject the options for capturing the allocated objects
 		// or the allocated space.
-		if path, _ := splitPathQuery(p.URL); path == "heap" {
+		if name == "heap" {
 			prof[i].Name = p.Name + " (objects in use)"
 			prof[i].URL = baseURL + p.URL
 			prof[i].Params = "?inuse_objects&url=" + url.QueryEscape(prof[i].URL)
@@ -286,10 +290,39 @@ func (h *Handler) fetchService(ctx context.Context, endpoint string) (prof []pro
 					Params: "?alloc_space&url=" + url.QueryEscape(prof[i].URL),
 				},
 			)
-		} else {
-			prof[i].URL = baseURL + p.URL
-			prof[i].Params = "?url=" + url.QueryEscape(prof[i].URL)
+			continue
 		}
+
+		if name == "profile" {
+			hasProfile = true
+		}
+
+		if name == "trace" {
+			hasTrace = true
+		}
+
+		prof[i].URL = baseURL + p.URL
+		prof[i].Params = "?url=" + url.QueryEscape(prof[i].URL)
+	}
+
+	if !hasProfile {
+		prof = append(prof, profile{
+			Name:   "profile",
+			URL:    endpoint + "/debug/pprof/profile",
+			Params: "?seconds=5",
+		})
+	}
+
+	if !hasTrace {
+		prof = append(prof, profile{
+			Name:   "trace",
+			URL:    endpoint + "/debug/pprof/trace",
+			Params: "?seconds=5",
+		})
+	}
+
+	for _, p := range prof {
+		fmt.Println(p.URL)
 	}
 
 	return

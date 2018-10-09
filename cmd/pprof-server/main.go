@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"syscall"
 
 	"github.com/segmentio/conf"
@@ -28,7 +29,7 @@ func main() {
 	config := struct {
 		Bind     string `conf:"bind"     help:"Network address to listen on." validate:"nonzero"`
 		Registry string `conf:"registry" help:"Address of the registry used to discover services."`
-		Debug    bool   `conf:"debug"       help:"Enable debug mode."`
+		Debug    bool   `conf:"debug"    help:"Enable debug mode."`
 
 		Dogstatsd dogstatsdConfig `conf:"dogstatsd" help:"Configuration of the dogstatsd client."`
 	}{
@@ -65,6 +66,16 @@ func main() {
 			consul.DefaultResolver.Balancer = nil
 			registry = &pprofserver.ConsulRegistry{}
 			events.Log("using consul registry at %{address}s", u.Host)
+		case "service":
+			name := strings.TrimPrefix(u.Path, "/")
+			if name == "" {
+				name = "Service"
+			}
+			registry = pprofserver.Service{
+				Name:  name,
+				Hosts: []pprofserver.Host{{Addr: hostAddr(u.Host)}},
+			}
+			events.Log("using single service registry at %{address}s", u.Host)
 		default:
 			events.Log("unsupported registry: %{url}s", config.Registry)
 			os.Exit(1)
@@ -104,3 +115,8 @@ func main() {
 		events.Log("fatal error: %{error}s", err)
 	}
 }
+
+type hostAddr string
+
+func (a hostAddr) Network() string { return "" }
+func (a hostAddr) String() string  { return string(a) }
