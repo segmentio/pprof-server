@@ -23,7 +23,7 @@ jobs:
           command: |
             tag=${CIRCLE_TAG:-circleci-$CIRCLE_BUILD_NUM}
 
-            ecr_image=528451384384.dkr.ecr.us-west-2.amazonaws.com/pprof-server:${tag}
+            ecr_image=${AWS_ACCOUNT_ID}.dkr.ecr.us-west-2.amazonaws.com/pprof-server:${tag}
             hub_image=segment/pprof-server:${tag}
 
             $(aws ecr get-login --no-include-email --region ${AWS_REGION})
