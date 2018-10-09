@@ -258,7 +258,7 @@ func (h *Handler) fetchService(ctx context.Context, endpoint string) (prof []pro
 	hasTrace := false
 
 	for i, p := range prof {
-		fullPath, _ := splitPathQuery(p.URL)
+		fullPath, query := splitPathQuery(p.URL)
 		name := path.Base(fullPath)
 		baseURL := endpoint
 
@@ -269,6 +269,10 @@ func (h *Handler) fetchService(ctx context.Context, endpoint string) (prof []pro
 		// For heap profiles, inject the options for capturing the allocated objects
 		// or the allocated space.
 		if name == "heap" {
+			// strip debug=1 or it fails to render svg after Go 1.11, it seems to
+			// render fine in earlier versions.
+			p.URL, _ = splitPathQuery(p.URL)
+
 			prof[i].Name = p.Name + " (objects in use)"
 			prof[i].URL = baseURL + p.URL
 			prof[i].Params = "?inuse_objects&url=" + url.QueryEscape(prof[i].URL)
@@ -301,23 +305,30 @@ func (h *Handler) fetchService(ctx context.Context, endpoint string) (prof []pro
 			hasTrace = true
 		}
 
+		if (name == "profile" || name == "trace") && query == "" {
+			query = "?seconds=5"
+		}
+
+		p.URL = fullPath + query
 		prof[i].URL = baseURL + p.URL
 		prof[i].Params = "?url=" + url.QueryEscape(prof[i].URL)
 	}
 
 	if !hasProfile {
+		profURL := endpoint + "/debug/pprof/profile?seconds=5"
 		prof = append(prof, profile{
 			Name:   "profile",
-			URL:    endpoint + "/debug/pprof/profile",
-			Params: "?seconds=5",
+			URL:    profURL,
+			Params: "?url=" + url.QueryEscape(profURL),
 		})
 	}
 
 	if !hasTrace {
+		profURL := endpoint + "/debug/pprof/trace?seconds=5"
 		prof = append(prof, profile{
 			Name:   "trace",
-			URL:    endpoint + "/debug/pprof/trace",
-			Params: "?seconds=5",
+			URL:    profURL,
+			Params: "?url=" + url.QueryEscape(profURL),
 		})
 	}
 
@@ -382,7 +393,7 @@ func renderHTML(res http.ResponseWriter, tpl *template.Template, val interface{}
 
 func splitPathQuery(s string) (path string, query string) {
 	if i := strings.IndexByte(s, '?'); i >= 0 {
-		path, query = s[:i], s[i+1:]
+		path, query = s[:i], s[i:]
 	} else {
 		path = s
 	}
