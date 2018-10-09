@@ -20,6 +20,7 @@ jobs:
           command: |
             sha=$(git rev-parse --short HEAD)
             tag=${CIRCLE_TAG:-circleci-$sha}
+            docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}
             make publish-image DOCKER_REPO=segment/pprof-server:${tag}
 
   publish_ecr:
