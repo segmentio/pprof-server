@@ -16,6 +16,9 @@ jobs:
       - setup_remote_docker
       - checkout
       - run:
+          name: Build pprof-server
+          command: go build ./cmd/pprof-server
+      - run:
           name: Publish Docker Image
           command: |
             tag=$(git rev-parse --short=7 HEAD)
