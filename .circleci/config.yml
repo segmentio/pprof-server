@@ -43,5 +43,9 @@ workflows:
   run:
     jobs:
       - build
-      - publish_hub
-      - publish_ecr
+      - publish_hub:
+          filters:
+            tags: { only: /.*/ }
+      - publish_ecr:
+          filters:
+            tags: { only: /.*/ }
