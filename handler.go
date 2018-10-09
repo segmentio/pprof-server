@@ -254,8 +254,7 @@ func (h *Handler) fetchService(ctx context.Context, endpoint string) (prof []pro
 	//
 	// Update: In Go 1.11 the profile and trace endpoints are now exposed by the
 	// index.
-	hasProfile := false
-	hasTrace := false
+	hasProfile, hasTrace := false, false
 
 	for i, p := range prof {
 		fullPath, query := splitPathQuery(p.URL)
@@ -315,7 +314,7 @@ func (h *Handler) fetchService(ctx context.Context, endpoint string) (prof []pro
 	}
 
 	if !hasProfile {
-		profURL := endpoint + "/debug/pprof/profile?seconds=5"
+		profURL := endpoint + prefix + "profile?seconds=5"
 		prof = append(prof, profile{
 			Name:   "profile",
 			URL:    profURL,
@@ -324,16 +323,12 @@ func (h *Handler) fetchService(ctx context.Context, endpoint string) (prof []pro
 	}
 
 	if !hasTrace {
-		profURL := endpoint + "/debug/pprof/trace?seconds=5"
+		profURL := endpoint + prefix + "trace?seconds=5"
 		prof = append(prof, profile{
 			Name:   "trace",
 			URL:    profURL,
 			Params: "?url=" + url.QueryEscape(profURL),
 		})
-	}
-
-	for _, p := range prof {
-		fmt.Println(p.URL)
 	}
 
 	return
