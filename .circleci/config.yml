@@ -9,35 +9,38 @@ jobs:
       - checkout
       - run: go test ./...
 
-  publish:
+  publish_hub:
     docker:
       - image: segment/circleci-golang:1.11.1
     steps:
       - setup_remote_docker: { reusable: true, docker_layer_caching: true }
       - checkout
       - run:
-          name: Build pprof-server
-          command: go build ./cmd/pprof-server
-      - run:
-          name: Publish Docker Image
+          name: Publish Docker Image (Hub)
           command: |
-            tag=${CIRCLE_TAG:-circleci-$CIRCLE_BUILD_NUM}
+            sha=$(git rev-parse --short HEAD)
+            tag=${CIRCLE_TAG:-circleci-$sha}
+            make publish-image DOCKER_REPO=segment/pprof-server:${tag}
 
-            ecr_image=${AWS_ACCOUNT_ID}.dkr.ecr.us-west-2.amazonaws.com/pprof-server:${tag}
-            hub_image=segment/pprof-server:${tag}
-
+  publish_ecr:
+    docker:
+      - image: segment/circleci-golang:1.11.1
+    steps:
+      - setup_remote_docker: { reusable: true, docker_layer_caching: true }
+      - checkout
+      - run:
+          name: Publish Docker Image (ECR)
+          command: |
+            sha=$(git rev-parse --short HEAD)
+            tag=${CIRCLE_TAG:-$sha}
+            rep=${AWS_ACCOUNT_ID}.dkr.ecr.us-west-2.amazonaws.com/pprof-server:${tag}
             $(aws ecr get-login --no-include-email --region ${AWS_REGION})
-            docker build -t pprof-server -f Dockerfile .
-
-            docker tag pprof-server ${ecr_image}
-            docker tag pprof-server ${hub_image}
-
-            docker push ${ecr_image}
-            docker push ${hub_image}
+            make publish-image DOCKER_REPO=${rep}
 
 workflows:
   version: 2
   run:
     jobs:
       - build
-      - publish
+      - publish_hub
+      - publish_ecr
