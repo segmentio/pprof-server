@@ -187,6 +187,7 @@ func (h *Handler) serveTree(res http.ResponseWriter, req *http.Request) {
 
 	buffer := &bytes.Buffer{}
 	buffer.Grow(32768)
+	events.Log("go " + strings.Join(args, " "))
 
 	pprof := exec.CommandContext(req.Context(), "go", args...)
 	pprof.Stdin = nil
@@ -229,13 +230,13 @@ func (h *Handler) serveRawProfile(w http.ResponseWriter, r *http.Request, url st
 func (h *Handler) fetchService(ctx context.Context, endpoint string) (prof []profile, err error) {
 	var req *http.Request
 	var res *http.Response
-	var baseURL = endpoint + h.prefix()
+	var prefix = h.prefix()
 
-	if !strings.Contains(baseURL, "://") {
-		baseURL = "http://" + baseURL
+	if !strings.Contains(endpoint, "://") {
+		endpoint = "http://" + endpoint
 	}
 
-	if req, err = http.NewRequest(http.MethodGet, baseURL, nil); err != nil {
+	if req, err = http.NewRequest(http.MethodGet, endpoint+"/debug/pprof/", nil); err != nil {
 		return
 	}
 
@@ -250,21 +251,27 @@ func (h *Handler) fetchService(ctx context.Context, endpoint string) (prof []pro
 
 	// For some reason the default profiles aren't returned by the /debug/pprof/
 	// home page.
-	prof = append(prof,
-		profile{
-			Name: "profile",
-			URL:  "profile?seconds=5",
-		},
-		profile{
-			Name: "trace",
-			URL:  "trace?seconds=5",
-		},
-	)
+	//
+	// Update: In Go 1.11 the profile and trace endpoints are now exposed by the
+	// index.
+	hasProfile, hasTrace := false, false
 
 	for i, p := range prof {
+		fullPath, query := splitPathQuery(p.URL)
+		name := path.Base(fullPath)
+		baseURL := endpoint
+
+		if !strings.HasPrefix(fullPath, "/") {
+			baseURL += prefix
+		}
+
 		// For heap profiles, inject the options for capturing the allocated objects
 		// or the allocated space.
-		if path, _ := splitPathQuery(p.URL); path == "heap" {
+		if name == "heap" {
+			// strip debug=1 or it fails to render svg after Go 1.11, it seems to
+			// render fine in earlier versions.
+			p.URL, _ = splitPathQuery(p.URL)
+
 			prof[i].Name = p.Name + " (objects in use)"
 			prof[i].URL = baseURL + p.URL
 			prof[i].Params = "?inuse_objects&url=" + url.QueryEscape(prof[i].URL)
@@ -286,10 +293,42 @@ func (h *Handler) fetchService(ctx context.Context, endpoint string) (prof []pro
 					Params: "?alloc_space&url=" + url.QueryEscape(prof[i].URL),
 				},
 			)
-		} else {
-			prof[i].URL = baseURL + p.URL
-			prof[i].Params = "?url=" + url.QueryEscape(prof[i].URL)
+			continue
 		}
+
+		if name == "profile" {
+			hasProfile = true
+		}
+
+		if name == "trace" {
+			hasTrace = true
+		}
+
+		if (name == "profile" || name == "trace") && query == "" {
+			query = "?seconds=5"
+		}
+
+		p.URL = fullPath + query
+		prof[i].URL = baseURL + p.URL
+		prof[i].Params = "?url=" + url.QueryEscape(prof[i].URL)
+	}
+
+	if !hasProfile {
+		profURL := endpoint + prefix + "profile?seconds=5"
+		prof = append(prof, profile{
+			Name:   "profile",
+			URL:    profURL,
+			Params: "?url=" + url.QueryEscape(profURL),
+		})
+	}
+
+	if !hasTrace {
+		profURL := endpoint + prefix + "trace?seconds=5"
+		prof = append(prof, profile{
+			Name:   "trace",
+			URL:    profURL,
+			Params: "?url=" + url.QueryEscape(profURL),
+		})
 	}
 
 	return
@@ -349,7 +388,7 @@ func renderHTML(res http.ResponseWriter, tpl *template.Template, val interface{}
 
 func splitPathQuery(s string) (path string, query string) {
 	if i := strings.IndexByte(s, '?'); i >= 0 {
-		path, query = s[:i], s[i+1:]
+		path, query = s[:i], s[i:]
 	} else {
 		path = s
 	}
