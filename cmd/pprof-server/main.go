@@ -18,6 +18,9 @@ import (
 	"github.com/segmentio/stats"
 	"github.com/segmentio/stats/datadog"
 	"github.com/segmentio/stats/httpstats"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 func main() {
@@ -26,12 +29,19 @@ func main() {
 		BufferSize int    `conf:"buffer-size" help:"Buffer size of the dogstatsd client." validet:"min=1024"`
 	}
 
+	type kubernetesConfig struct {
+		MasterURL  string `conf:"master-url" help:"Master of the Kubernetes URL."`
+		Kubeconfig string `conf:"kubeconfig" help:"Path of the Kubeconfig file."`
+	}
+
 	config := struct {
-		Bind     string `conf:"bind"     help:"Network address to listen on." validate:"nonzero"`
-		Registry string `conf:"registry" help:"Address of the registry used to discover services."`
-		Debug    bool   `conf:"debug"    help:"Enable debug mode."`
+		Bind     string `conf:"bind"      help:"Network address to listen on." validate:"nonzero"`
+		Registry string `conf:"registry"  help:"Address of the registry used to discover services."`
+		Debug    bool   `conf:"debug"     help:"Enable debug mode."`
 
 		Dogstatsd dogstatsdConfig `conf:"dogstatsd" help:"Configuration of the dogstatsd client."`
+
+		Kubernetes kubernetesConfig `conf:"kubernetes" help:"Kubernetes configuration."`
 	}{
 		Bind: ":6061",
 		Dogstatsd: dogstatsdConfig{
@@ -50,6 +60,9 @@ func main() {
 			BufferSize: config.Dogstatsd.BufferSize,
 		}))
 	}
+
+	ctx, cancel := events.WithSignals(context.Background(), syscall.SIGTERM, syscall.SIGINT)
+	defer cancel()
 
 	var registry pprofserver.Registry
 	if len(config.Registry) != 0 {
@@ -76,6 +89,20 @@ func main() {
 				Hosts: []pprofserver.Host{{Addr: hostAddr(u.Host)}},
 			}
 			events.Log("using single service registry at %{address}s", u.Host)
+		case "kubernetes":
+			kubeclient, err := kubeClient(
+				u.Host == "in-cluster",
+				config.Kubernetes.MasterURL,
+				config.Kubernetes.Kubeconfig)
+			if err != nil {
+				panic(err)
+			}
+
+			kubernetesRegistry := pprofserver.NewKubernetesRegistry(kubeclient)
+			kubernetesRegistry.Init(ctx)
+
+			registry = kubernetesRegistry
+			events.Log("using kubernetes registry")
 		default:
 			events.Log("unsupported registry: %{url}s", config.Registry)
 			os.Exit(1)
@@ -91,9 +118,6 @@ func main() {
 	httpHandler = httpstats.NewHandler(httpHandler)
 	httpHandler = httpevents.NewHandler(httpHandler)
 	http.Handle("/", httpHandler)
-
-	ctx, cancel := events.WithSignals(context.Background(), syscall.SIGTERM, syscall.SIGINT)
-	defer cancel()
 
 	server := http.Server{
 		Addr: config.Bind,
@@ -120,3 +144,24 @@ type hostAddr string
 
 func (a hostAddr) Network() string { return "" }
 func (a hostAddr) String() string  { return string(a) }
+
+func kubeClient(inCluster bool, master, kubeconfig string) (*kubernetes.Clientset, error) {
+	var config *rest.Config
+	var err error
+
+	if inCluster {
+		events.Log("kubernetes: using pod service account with InClusterConfig.")
+		config, err = rest.InClusterConfig()
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		events.Log("kubernetes: kubeconfig file.")
+		config, err = clientcmd.BuildConfigFromFlags(master, kubeconfig)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return kubernetes.NewForConfig(config)
+}

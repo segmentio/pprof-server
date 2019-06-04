@@ -11,6 +11,10 @@ type Service struct {
 	Hosts []Host
 }
 
+func (s Service) String() string {
+	return "service"
+}
+
 func (s Service) ListServices(ctx context.Context) ([]string, error) {
 	return []string{s.Name}, nil
 }
@@ -30,4 +34,5 @@ type Host struct {
 type Registry interface {
 	ListServices(ctx context.Context) ([]string, error)
 	LookupService(ctx context.Context, name string) (Service, error)
+	String() string
 }
