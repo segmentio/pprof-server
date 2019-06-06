@@ -2,7 +2,7 @@ version: 2
 jobs:
   build:
     docker:
-      - image: segment/circleci-golang:1.11.1
+      - image: segment/circleci-golang:1.12.5
         environment:
           GO111MODULE: 'on'
     steps:
@@ -11,7 +11,7 @@ jobs:
 
   publish_hub:
     docker:
-      - image: segment/circleci-golang:1.11.1
+      - image: segment/circleci-golang:1.12.5
     steps:
       - setup_remote_docker: { reusable: true, docker_layer_caching: true }
       - checkout
@@ -25,7 +25,7 @@ jobs:
 
   publish_ecr:
     docker:
-      - image: segment/circleci-golang:1.11.1
+      - image: segment/circleci-golang:1.12.5
     steps:
       - setup_remote_docker: { reusable: true, docker_layer_caching: true }
       - checkout
