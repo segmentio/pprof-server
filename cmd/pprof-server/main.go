@@ -152,15 +152,13 @@ func kubeClient(inCluster bool, master, kubeconfig string) (*kubernetes.Clientse
 	if inCluster {
 		events.Log("kubernetes: using pod service account with InClusterConfig.")
 		config, err = rest.InClusterConfig()
-		if err != nil {
-			return nil, err
-		}
 	} else {
 		events.Log("kubernetes: kubeconfig file.")
 		config, err = clientcmd.BuildConfigFromFlags(master, kubeconfig)
-		if err != nil {
-			return nil, err
-		}
+	}
+
+	if err != nil {
+		return nil, err
 	}
 
 	return kubernetes.NewForConfig(config)

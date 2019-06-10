@@ -53,6 +53,8 @@ func (h *Handler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		h.serveListServices(res, req)
 
 	case strings.HasPrefix(path, "/pods"):
+		// We currently expose all the PODs in one page. To make it more scalable, we plan
+		// to implement a tree of pages per type of Kubernetes resource (sts, deployment, ...).
 		h.serveListPods(res, req)
 
 	case strings.HasPrefix(path, "/services/"):

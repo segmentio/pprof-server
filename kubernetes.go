@@ -18,6 +18,8 @@ import (
 
 // KubernetesRegistry is a registry which discovers PODs running
 // on a Kubernetes cluster.
+//
+// TODO: give the ability to configure multiple Kubernetes clusters.
 type KubernetesRegistry struct {
 	Namespace string
 
