@@ -9,6 +9,10 @@ import (
 
 type ConsulRegistry struct{}
 
+func (r *ConsulRegistry) String() string {
+	return "consul"
+}
+
 func (r *ConsulRegistry) ListServices(ctx context.Context) ([]string, error) {
 	services, err := consul.ListServices(ctx)
 	if err != nil {

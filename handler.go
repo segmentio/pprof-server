@@ -38,8 +38,11 @@ func (h *Handler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 
 	switch path := req.URL.Path; {
 	case path == "/", path == "/services":
-		h.serveRedirect(res, req, "/services/")
-
+		if h.Registry.String() == "kubernetes" {
+			h.serveRedirect(res, req, "/pods")
+		} else {
+			h.serveRedirect(res, req, "/services/")
+		}
 	case path == "/tree":
 		h.serveTree(res, req)
 
@@ -49,8 +52,13 @@ func (h *Handler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	case path == "/services/":
 		h.serveListServices(res, req)
 
+	case strings.HasPrefix(path, "/pods"):
+		// We currently expose all the PODs in one page. To make it more scalable, we plan
+		// to implement a tree of pages per type of Kubernetes resource (sts, deployment, ...).
+		h.serveListPods(res, req)
+
 	case strings.HasPrefix(path, "/services/"):
-		h.serveListNodes(res, req)
+		h.serveListTasks(res, req)
 
 	case strings.HasPrefix(path, "/service/"):
 		h.serveLookupService(res, req)
@@ -88,14 +96,14 @@ func (h *Handler) serveListServices(res http.ResponseWriter, req *http.Request) 
 	render(res, req, listServices, services)
 }
 
-func (h *Handler) serveListNodes(res http.ResponseWriter, req *http.Request) {
+func (h *Handler) serveListTasks(res http.ResponseWriter, req *http.Request) {
 	var name = strings.TrimPrefix(path.Clean(req.URL.Path), "/services/")
 	var srv service
 
 	if h.Registry != nil {
 		srvRegistry, err := h.Registry.LookupService(req.Context(), name)
 		if err != nil {
-			events.Log("error listing nodes: %{error}s", err)
+			events.Log("error listing tasks: %{error}s", err)
 		}
 
 		srv.Nodes = make([]node, 0, len(srvRegistry.Hosts))
@@ -110,6 +118,30 @@ func (h *Handler) serveListNodes(res http.ResponseWriter, req *http.Request) {
 	srv.Name = name
 	srv.Href = "/services/" + name
 	render(res, req, listNodes, srv)
+}
+
+func (h *Handler) serveListPods(res http.ResponseWriter, req *http.Request) {
+	var srv service
+
+	if h.Registry != nil {
+		srvRegistry, err := h.Registry.LookupService(req.Context(), "")
+		if err != nil {
+			events.Log("error listing pods: %{error}s", err)
+		}
+
+		srv.Nodes = make([]node, 0, len(srvRegistry.Hosts))
+		for _, host := range srvRegistry.Hosts {
+			srv.Nodes = append(srv.Nodes, node{
+				Endpoint: fmt.Sprintf("%s %s", host.Addr, strings.Join(host.Tags, " - ")),
+				Href:     "/service/" + host.Addr.String(),
+			})
+		}
+	}
+
+	srv.Name = "kubernetes"
+	srv.Href = "/pods/"
+	render(res, req, listNodes, srv)
+
 }
 
 func (h *Handler) serveLookupService(res http.ResponseWriter, req *http.Request) {
