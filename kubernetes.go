@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"sort"
 	"time"
 
 	"github.com/segmentio/events"
@@ -101,6 +102,8 @@ func (k *KubernetesRegistry) ListServices(ctx context.Context) ([]string, error)
 	for _, pod := range podnames.Items {
 		list = append(list, pod.Name)
 	}
+
+	sort.Strings(list)
 
 	return list, nil
 }
