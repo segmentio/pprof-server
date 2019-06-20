@@ -40,7 +40,7 @@ func (k *KubernetesRegistry) String() string {
 
 // Init initialize the watcher and store configuration for the registry.
 func (k *KubernetesRegistry) Init(ctx context.Context) {
-	p := k.client.CoreV1().Pods(k.Namespace) //List(metaV1.ListOptions{LabelSelector: "app=trytrytillyou"})
+	p := k.client.CoreV1().Pods(k.Namespace)
 
 	listWatch := &cache.ListWatch{
 		ListFunc: func(options metaV1.ListOptions) (runtime.Object, error) {
@@ -90,19 +90,17 @@ func toPod(o interface{}) (*apiv1.Pod, error) {
 	return nil, fmt.Errorf("received unexpected object: %v", o)
 }
 
-
 func (k *KubernetesRegistry) ListServices(ctx context.Context) ([]string, error) {
 
-  podnames, err := k.client.CoreV1().Pods("").List(metaV1.ListOptions{})//FieldSelector: "metadata.name=copiedcontainers"
+	podnames, err := k.client.CoreV1().Pods("").List(metaV1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
 
 	list := make([]string, 0, len(podnames.Items))
 	for _, pod := range podnames.Items {
-    // fmt.Println(pod.Name) // pod.status
 		list = append(list, pod.Name)
-  }
+	}
 
 	return list, nil
 }
@@ -121,11 +119,11 @@ func (k *KubernetesRegistry) LookupService(ctx context.Context, name string) (Se
 			events.Log("failed to convert data to pod: %{error}s", err)
 			continue
 		}
-    // filtering pods based on podname, even if they are diff namepsaces for now, since the route for namespaces isnt made yet
+		// filtering pods based on podname, even if they are diff namepsaces for now, since the route for namespaces isnt made yet
 		if pod.Name == name {
 			for _, container := range pod.Spec.Containers {
 				// adding container name to display
-				tags := []string{pod.Name+"-"+container.Name}
+				tags := []string{pod.Name + "-" + container.Name}
 
 				for _, port := range container.Ports {
 					if port.Name == "http" {
@@ -136,14 +134,10 @@ func (k *KubernetesRegistry) LookupService(ctx context.Context, name string) (Se
 							},
 							Tags: append(tags, port.Name), // port name must be specified in the pod spec as http
 						})
-					} else {
-						continue
 					}
 				}
 			}
-		} else {
-		 continue
-	  }
+		}
 	}
 
 	svc.Hosts = hosts
