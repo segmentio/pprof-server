@@ -40,7 +40,7 @@ func (k *KubernetesRegistry) String() string {
 
 // Init initialize the watcher and store configuration for the registry.
 func (k *KubernetesRegistry) Init(ctx context.Context) {
-	p := k.client.CoreV1().Pods(k.Namespace)
+	p := k.client.CoreV1().Pods(k.Namespace) //List(metaV1.ListOptions{LabelSelector: "app=trytrytillyou"})
 
 	listWatch := &cache.ListWatch{
 		ListFunc: func(options metaV1.ListOptions) (runtime.Object, error) {
@@ -90,12 +90,24 @@ func toPod(o interface{}) (*apiv1.Pod, error) {
 	return nil, fmt.Errorf("received unexpected object: %v", o)
 }
 
-// ListServices is not yet implemented for this registry.
+
 func (k *KubernetesRegistry) ListServices(ctx context.Context) ([]string, error) {
-	return nil, fmt.Errorf("not yet implemented")
+
+  podnames, err := k.client.CoreV1().Pods("").List(metaV1.ListOptions{})//FieldSelector: "metadata.name=copiedcontainers"
+	if err != nil {
+		return nil, err
+	}
+
+	list := make([]string, 0, len(podnames.Items))
+	for _, pod := range podnames.Items {
+    // fmt.Println(pod.Name) // pod.status
+		list = append(list, pod.Name)
+  }
+
+	return list, nil
 }
 
-// LookupService implementeds the Registry interface. The returned Service will contain
+// LookupService implements the Registry interface. The returned Service will contain
 // one Host entry per POD IP+container exposed port.
 func (k *KubernetesRegistry) LookupService(ctx context.Context, name string) (Service, error) {
 	svc := Service{
@@ -106,23 +118,32 @@ func (k *KubernetesRegistry) LookupService(ctx context.Context, name string) (Se
 	for _, obj := range k.store.List() {
 		pod, err := toPod(obj)
 		if err != nil {
-			events.Log("failed to covert data to pod: %{error}s", err)
+			events.Log("failed to convert data to pod: %{error}s", err)
 			continue
 		}
+    // filtering pods based on podname, even if they are diff namepsaces for now, since the route for namespaces isnt made yet
+		if pod.Name == name {
+			for _, container := range pod.Spec.Containers {
+				// adding container name to display
+				tags := []string{pod.Name+"-"+container.Name}
 
-		for _, container := range pod.Spec.Containers {
-			tags := []string{pod.Name}
-
-			for _, port := range container.Ports {
-				hosts = append(hosts, Host{
-					Addr: &net.TCPAddr{
-						IP:   net.ParseIP(pod.Status.PodIP),
-						Port: int(port.ContainerPort),
-					},
-					Tags: append(tags, port.Name),
-				})
+				for _, port := range container.Ports {
+					if port.Name == "http" {
+						hosts = append(hosts, Host{
+							Addr: &net.TCPAddr{
+								IP:   net.ParseIP(pod.Status.PodIP),
+								Port: int(port.ContainerPort),
+							},
+							Tags: append(tags, port.Name), // port name must be specified in the pod spec as http
+						})
+					} else {
+						continue
+					}
+				}
 			}
-		}
+		} else {
+		 continue
+	  }
 	}
 
 	svc.Hosts = hosts
