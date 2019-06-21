@@ -52,15 +52,21 @@ func (h *Handler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	case path == "/services/":
 		h.serveListServices(res, req)
 
-	case strings.HasPrefix(path, "/pods"):
-		// We currently expose all the PODs in one page. To make it more scalable, we plan
-		// to implement a tree of pages per type of Kubernetes resource (sts, deployment, ...).
-		h.serveListPods(res, req)
-
 	case strings.HasPrefix(path, "/services/"):
 		h.serveListTasks(res, req)
 
 	case strings.HasPrefix(path, "/service/"):
+		h.serveLookupService(res, req)
+
+	case path == "/pods":
+		h.serveListPods(res, req)
+
+	case strings.HasPrefix(path, "/pods/"):
+		// We currently expose all the PODs in one page. To make it more scalable, we plan
+		// to implement a tree of pages per type of Kubernetes resource (sts, deployment, ...).
+		h.serveListContainers(res, req)
+
+	case strings.HasPrefix(path, "/pods/"):
 		h.serveLookupService(res, req)
 
 	default:
@@ -121,10 +127,31 @@ func (h *Handler) serveListTasks(res http.ResponseWriter, req *http.Request) {
 }
 
 func (h *Handler) serveListPods(res http.ResponseWriter, req *http.Request) {
+	var services []service
+
+	if h.Registry != nil {
+		names, err := h.Registry.ListServices(req.Context())
+		if err != nil {
+			events.Log("error listing services: %{error}s", err)
+		}
+		services = make([]service, 0, len(names))
+		for _, name := range names {
+			services = append(services, service{
+				Name: name,
+				Href: "/pods/" + name,
+			})
+		}
+	}
+
+	render(res, req, listServices, services)
+}
+
+func (h *Handler) serveListContainers(res http.ResponseWriter, req *http.Request) {
+	var podname = strings.TrimPrefix(path.Clean(req.URL.Path), "/pods/")
 	var srv service
 
 	if h.Registry != nil {
-		srvRegistry, err := h.Registry.LookupService(req.Context(), "")
+		srvRegistry, err := h.Registry.LookupService(req.Context(), podname)
 		if err != nil {
 			events.Log("error listing pods: %{error}s", err)
 		}
@@ -133,13 +160,13 @@ func (h *Handler) serveListPods(res http.ResponseWriter, req *http.Request) {
 		for _, host := range srvRegistry.Hosts {
 			srv.Nodes = append(srv.Nodes, node{
 				Endpoint: fmt.Sprintf("%s %s", host.Addr, strings.Join(host.Tags, " - ")),
-				Href:     "/service/" + host.Addr.String(),
+				Href:     "/pods/" + podname + "/" + host.Addr.String(),
 			})
 		}
 	}
 
 	srv.Name = "kubernetes"
-	srv.Href = "/pods/"
+	srv.Href = "/pods/" + podname
 	render(res, req, listNodes, srv)
 
 }
