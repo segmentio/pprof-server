@@ -58,7 +58,7 @@ func (h *Handler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	case strings.HasPrefix(path, "/service/"):
 		h.serveLookupService(res, req)
 
-	case path == "/pods":
+	case path == "/pods/":
 		h.serveListPods(res, req)
 
 	case strings.HasPrefix(path, "/pods/"):
@@ -66,8 +66,8 @@ func (h *Handler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		// to implement a tree of pages per type of Kubernetes resource (sts, deployment, ...).
 		h.serveListContainers(res, req)
 
-	case strings.HasPrefix(path, "/pods/"):
-		h.serveLookupService(res, req)
+	case strings.HasPrefix(path, "/pod/"):
+		h.serveLookupContainer(res, req)
 
 	default:
 		h.serveNotFound(res, req)
@@ -160,7 +160,7 @@ func (h *Handler) serveListContainers(res http.ResponseWriter, req *http.Request
 		for _, host := range srvRegistry.Hosts {
 			srv.Nodes = append(srv.Nodes, node{
 				Endpoint: fmt.Sprintf("%s %s", host.Addr, strings.Join(host.Tags, " - ")),
-				Href:     "/pods/" + podname + "/" + host.Addr.String(),
+				Href:     "/pod/" + host.Addr.String(),
 			})
 		}
 	}
@@ -174,6 +174,33 @@ func (h *Handler) serveListContainers(res http.ResponseWriter, req *http.Request
 func (h *Handler) serveLookupService(res http.ResponseWriter, req *http.Request) {
 	var ctx = req.Context()
 	var endpoint = strings.TrimPrefix(path.Clean(req.URL.Path), "/service/")
+	var n node
+
+	if h.Registry != nil {
+		p, err := h.fetchService(ctx, endpoint)
+		if err != nil {
+			events.Log("error fetching service profiles of %{service}s: %{error}s", endpoint, err)
+		} else {
+			n.Profiles = append(n.Profiles, p...)
+		}
+	}
+
+	sort.Slice(n.Profiles, func(i int, j int) bool {
+		p1 := n.Profiles[i]
+		p2 := n.Profiles[j]
+
+		if p1.Name != p2.Name {
+			return p1.Name < p2.Name
+		}
+
+		return p1.URL < p2.URL
+	})
+	render(res, req, lookupService, n)
+}
+
+func (h *Handler) serveLookupContainer(res http.ResponseWriter, req *http.Request) {
+	var ctx = req.Context()
+	var endpoint = strings.TrimPrefix(path.Clean(req.URL.Path), "/pod/")
 	var n node
 
 	if h.Registry != nil {
