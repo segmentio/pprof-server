@@ -39,7 +39,7 @@ func (h *Handler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	switch path := req.URL.Path; {
 	case path == "/", path == "/services":
 		if h.Registry.String() == "kubernetes" {
-			h.serveRedirect(res, req, "/pods")
+			h.serveRedirect(res, req, "/pods/")
 		} else {
 			h.serveRedirect(res, req, "/services/")
 		}
@@ -52,16 +52,22 @@ func (h *Handler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	case path == "/services/":
 		h.serveListServices(res, req)
 
-	case strings.HasPrefix(path, "/pods"):
-		// We currently expose all the PODs in one page. To make it more scalable, we plan
-		// to implement a tree of pages per type of Kubernetes resource (sts, deployment, ...).
-		h.serveListPods(res, req)
-
 	case strings.HasPrefix(path, "/services/"):
 		h.serveListTasks(res, req)
 
 	case strings.HasPrefix(path, "/service/"):
 		h.serveLookupService(res, req)
+
+	case path == "/pods/":
+		h.serveListPods(res, req)
+
+	case strings.HasPrefix(path, "/pods/"):
+		// We currently expose all the PODs in one page. To make it more scalable, we plan
+		// to implement a tree of pages per type of Kubernetes resource (sts, deployment, ...).
+		h.serveListContainers(res, req)
+
+	case strings.HasPrefix(path, "/pod/"):
+		h.serveLookupContainer(res, req)
 
 	default:
 		h.serveNotFound(res, req)
@@ -121,10 +127,31 @@ func (h *Handler) serveListTasks(res http.ResponseWriter, req *http.Request) {
 }
 
 func (h *Handler) serveListPods(res http.ResponseWriter, req *http.Request) {
+	var services []service
+
+	if h.Registry != nil {
+		names, err := h.Registry.ListServices(req.Context())
+		if err != nil {
+			events.Log("error listing services: %{error}s", err)
+		}
+		services = make([]service, 0, len(names))
+		for _, name := range names {
+			services = append(services, service{
+				Name: name,
+				Href: "/pods/" + name,
+			})
+		}
+	}
+
+	render(res, req, listServices, services)
+}
+
+func (h *Handler) serveListContainers(res http.ResponseWriter, req *http.Request) {
+	var podname = strings.TrimPrefix(path.Clean(req.URL.Path), "/pods/")
 	var srv service
 
 	if h.Registry != nil {
-		srvRegistry, err := h.Registry.LookupService(req.Context(), "")
+		srvRegistry, err := h.Registry.LookupService(req.Context(), podname)
 		if err != nil {
 			events.Log("error listing pods: %{error}s", err)
 		}
@@ -133,13 +160,13 @@ func (h *Handler) serveListPods(res http.ResponseWriter, req *http.Request) {
 		for _, host := range srvRegistry.Hosts {
 			srv.Nodes = append(srv.Nodes, node{
 				Endpoint: fmt.Sprintf("%s %s", host.Addr, strings.Join(host.Tags, " - ")),
-				Href:     "/service/" + host.Addr.String(),
+				Href:     "/pod/" + host.Addr.String(),
 			})
 		}
 	}
 
 	srv.Name = "kubernetes"
-	srv.Href = "/pods/"
+	srv.Href = "/pods/" + podname
 	render(res, req, listNodes, srv)
 
 }
@@ -147,6 +174,33 @@ func (h *Handler) serveListPods(res http.ResponseWriter, req *http.Request) {
 func (h *Handler) serveLookupService(res http.ResponseWriter, req *http.Request) {
 	var ctx = req.Context()
 	var endpoint = strings.TrimPrefix(path.Clean(req.URL.Path), "/service/")
+	var n node
+
+	if h.Registry != nil {
+		p, err := h.fetchService(ctx, endpoint)
+		if err != nil {
+			events.Log("error fetching service profiles of %{service}s: %{error}s", endpoint, err)
+		} else {
+			n.Profiles = append(n.Profiles, p...)
+		}
+	}
+
+	sort.Slice(n.Profiles, func(i int, j int) bool {
+		p1 := n.Profiles[i]
+		p2 := n.Profiles[j]
+
+		if p1.Name != p2.Name {
+			return p1.Name < p2.Name
+		}
+
+		return p1.URL < p2.URL
+	})
+	render(res, req, lookupService, n)
+}
+
+func (h *Handler) serveLookupContainer(res http.ResponseWriter, req *http.Request) {
+	var ctx = req.Context()
+	var endpoint = strings.TrimPrefix(path.Clean(req.URL.Path), "/pod/")
 	var n node
 
 	if h.Registry != nil {
