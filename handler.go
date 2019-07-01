@@ -39,7 +39,7 @@ func (h *Handler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	switch path := req.URL.Path; {
 	case path == "/", path == "/services":
 		if h.Registry.String() == "kubernetes" {
-			h.serveRedirect(res, req, "/pods")
+			h.serveRedirect(res, req, "/pods/")
 		} else {
 			h.serveRedirect(res, req, "/services/")
 		}
