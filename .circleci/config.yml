@@ -9,20 +9,6 @@ jobs:
       - checkout
       - run: go test ./...
 
-  publish_hub:
-    docker:
-      - image: segment/circleci-golang:1.12.5
-    steps:
-      - setup_remote_docker: { reusable: true, docker_layer_caching: true }
-      - checkout
-      - run:
-          name: Publish Docker Image (Hub)
-          command: |
-            sha=$(git rev-parse --short HEAD)
-            tag=${CIRCLE_TAG:-circleci-$sha}
-            docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}
-            make publish-image DOCKER_REPO=segment/pprof-server:${tag}
-
   publish_ecr:
     docker:
       - image: segment/circleci-golang:1.12.5
@@ -43,9 +29,6 @@ workflows:
   run:
     jobs:
       - build
-      - publish_hub:
-          filters:
-            tags: { only: /.*/ }
       - publish_ecr:
           filters:
             tags: { only: /.*/ }
