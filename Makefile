@@ -11,7 +11,9 @@ test: vendor
 clean:
 	rm -f pprof-server
 
-vendor:
+vendor: ./vendor/modules.txt
+
+./vendor/modules.txt: go.mod go.sum
 	go mod vendor
 
 pprof-server: vendor $(sources)
@@ -24,3 +26,5 @@ docker: vendor
 
 publish: docker
 	docker push $(docker.image)
+
+.PHONY: all test clean vendor docker publish
