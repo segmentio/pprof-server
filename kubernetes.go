@@ -45,10 +45,10 @@ func (k *KubernetesRegistry) Init(ctx context.Context) {
 
 	listWatch := &cache.ListWatch{
 		ListFunc: func(options metaV1.ListOptions) (runtime.Object, error) {
-			return p.List(options)
+			return p.List(context.TODO(), options)
 		},
 		WatchFunc: func(options metaV1.ListOptions) (watch.Interface, error) {
-			return p.Watch(options)
+			return p.Watch(context.TODO(), options)
 		},
 	}
 
@@ -93,7 +93,7 @@ func toPod(o interface{}) (*apiv1.Pod, error) {
 
 func (k *KubernetesRegistry) ListServices(ctx context.Context) ([]string, error) {
 
-	podnames, err := k.client.CoreV1().Pods("").List(metaV1.ListOptions{})
+	podnames, err := k.client.CoreV1().Pods("").List(ctx, metaV1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
