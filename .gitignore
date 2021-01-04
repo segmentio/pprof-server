@@ -17,5 +17,5 @@
 *~
 
 # Golang
-/vendor/*/
+/vendor/
 /pprof-server

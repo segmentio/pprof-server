@@ -1,0 +1,15 @@
+.dockerignore
+pprof-server
+Dockerfile
+docker-compose*
+.buildkite
+.dockerignore
+.git
+.github
+.gitignore
+.run
+*.so
+*.out
+*.md
+*.test
+*_test.go

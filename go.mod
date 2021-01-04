@@ -1,5 +1,7 @@
 module github.com/segmentio/pprof-server
 
+go 1.15
+
 require (
 	github.com/fatih/color v1.7.0 // indirect
 	github.com/golang/protobuf v1.3.1 // indirect
