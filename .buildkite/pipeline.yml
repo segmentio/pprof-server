@@ -11,7 +11,7 @@ steps:
   - make test
   plugins:
   - ssh://git@github.com/segmentio/cache-buildkite-plugin#v3.0.0:
-      key: pprof-server-modules-{{ checksum 'go.mod' }}
+      key: pprof-server-vendor-{{ checksum 'go.mod' }}
       paths:
       - vendor/
       save: true
@@ -26,6 +26,6 @@ steps:
   - make publish branch=$BUILDKITE_BRANCH commit=$BUILDKITE_SHORT_COMMIT
   plugins:
   - ssh://git@github.com/segmentio/cache-buildkite-plugin#v3.0.0:
-      key: pprof-server-modules-{{ checksum 'go.mod' }}
+      key: pprof-server-vendor-{{ checksum 'go.mod' }}
       paths:
       - vendor/
