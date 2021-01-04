@@ -11,7 +11,7 @@ steps:
   - make test
   plugins:
   - ssh://git@github.com/segmentio/cache-buildkite-plugin#v3.0.0:
-      key: centrifuge-modules-{{ checksum 'go.mod' }}
+      key: pprof-server-modules-{{ checksum 'go.mod' }}
       paths:
       - vendor/
       save: true

@@ -1,11 +1,12 @@
 sources := $(wildcard *.go) $(wildcard ./cmd/pprof-server/*.go)
 branch ?= $(shell git rev-parse --abbrev-ref HEAD)
 commit ?= $(shell git rev-parse --short=7 HEAD)
+go := GOARGS=-mod=vendor go
 
 all: test pprof-server
 
-test:
-	go test ./...
+test: vendor
+	$(go) test ./...
 
 clean:
 	rm -f pprof-server
@@ -13,8 +14,8 @@ clean:
 vendor:
 	go mod vendor
 
-pprof-server: $(sources)
-	go build ./cmd/pprof-server
+pprof-server: vendor $(sources)
+	$(go) build ./cmd/pprof-server
 
 docker.version ?= $(subst /,-,$(branch))-$(commit)
 docker.image ?= "528451384384.dkr.ecr.us-west-2.amazonaws.com/centrifuge:$(docker.version)"
