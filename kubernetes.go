@@ -100,7 +100,7 @@ func (k *KubernetesRegistry) ListServices(ctx context.Context) ([]string, error)
 
 	list := make([]string, 0, len(podnames.Items))
 	for _, pod := range podnames.Items {
-		list = append(list, pod.Namespace+"/"+pod.Name)
+		list = append(list, joinNamespacePodName(pod.Namespace, pod.Name))
 	}
 
 	sort.Strings(list)
@@ -147,6 +147,10 @@ func (k *KubernetesRegistry) LookupService(ctx context.Context, name string) (Se
 
 	svc.Hosts = hosts
 	return svc, nil
+}
+
+func joinNamespacePodName(namespace, podName string) string {
+	return namespace + "/" + podName
 }
 
 func splitNamespacePodName(name string) (namespace, podName string) {
