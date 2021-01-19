@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/segmentio/events"
@@ -92,19 +93,17 @@ func toPod(o interface{}) (*apiv1.Pod, error) {
 }
 
 func (k *KubernetesRegistry) ListServices(ctx context.Context) ([]string, error) {
-
-	podnames, err := k.client.CoreV1().Pods("").List(ctx, metaV1.ListOptions{})
+	podnames, err := k.client.CoreV1().Pods(k.Namespace).List(ctx, metaV1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
 
 	list := make([]string, 0, len(podnames.Items))
 	for _, pod := range podnames.Items {
-		list = append(list, pod.Name)
+		list = append(list, joinNamespacePodName(pod.Namespace, pod.Name))
 	}
 
 	sort.Strings(list)
-
 	return list, nil
 }
 
@@ -115,15 +114,18 @@ func (k *KubernetesRegistry) LookupService(ctx context.Context, name string) (Se
 		Name: "kubernetes",
 	}
 
+	namespace, podName := splitNamespacePodName(name)
 	hosts := []Host{}
+
 	for _, obj := range k.store.List() {
 		pod, err := toPod(obj)
 		if err != nil {
 			events.Log("failed to convert data to pod: %{error}s", err)
 			continue
 		}
+
 		// filtering pods based on podname, even if they are diff namepsaces for now, since the route for namespaces isnt made yet
-		if pod.Name == name {
+		if pod.Namespace == namespace && pod.Name == podName {
 			for _, container := range pod.Spec.Containers {
 				// adding container name to display
 				tags := []string{pod.Name + "-" + container.Name}
@@ -144,6 +146,18 @@ func (k *KubernetesRegistry) LookupService(ctx context.Context, name string) (Se
 	}
 
 	svc.Hosts = hosts
-
 	return svc, nil
+}
+
+func joinNamespacePodName(namespace, podName string) string {
+	return namespace + "/" + podName
+}
+
+func splitNamespacePodName(name string) (namespace, podName string) {
+	if i := strings.IndexByte(name, '/'); i < 0 {
+		podName = name
+	} else {
+		namespace, podName = name[:i], name[i+1:]
+	}
+	return
 }
