@@ -390,7 +390,7 @@ func (h *Handler) fetchService(ctx context.Context, endpoint string) (prof []pro
 			hasTrace = true
 		}
 
-		if (name == "profile" || name == "trace") && query == "" {
+		if (name == "profile" || name == "trace") && !strings.Contains(query, "seconds=") {
 			query = "?seconds=5"
 		}
 
