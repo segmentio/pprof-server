@@ -1,4 +1,4 @@
-FROM golang:1.15.6
+FROM golang:1.17.0
 
 RUN apt-get update -y && \
     apt-get install -y ca-certificates graphviz
