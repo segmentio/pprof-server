@@ -1,6 +1,6 @@
-FROM golang:1.15.6   
-RUN apt-get update -y && \
-    apt-get install -y ca-certificates graphviz 
+FROM golang:1.17.1-alpine3.14   
+RUN apk add --update --no-cache \
+           ca-certificates  make graphviz 
 
 WORKDIR $GOPATH/src/github.com/segmentio/pprof-server
 COPY . .
