@@ -3,7 +3,7 @@ steps:
   env:
     GOPRIVATE: "github.com/segmentio"
     SEGMENT_CONTEXTS: "snyk,aws-credentials"
-    SEGMENT_BUILDKITE_IMAGE: 'buildkite-agent-golang1.15'
+    SEGMENT_BUILDKITE_IMAGE: 'buildkite-agent-golang1.17'
   agents:
     queue: v1
   commands:
@@ -13,7 +13,7 @@ steps:
 - label: publish
   env:
     SEGMENT_CONTEXTS: snyk,aws-credentials
-    SEGMENT_BUILDKITE_IMAGE: buildkite-agent-golang1.15
+    SEGMENT_BUILDKITE_IMAGE: buildkite-agent-golang1.17
   agents:
     queue: v1
   commands:
