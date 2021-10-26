@@ -7,8 +7,7 @@ steps:
   agents:
     queue: v1
   commands:
-  - make vendor
-  - make test
+  - make all
 
 - label: publish
   env:
