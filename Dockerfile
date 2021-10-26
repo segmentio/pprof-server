@@ -1,6 +1,6 @@
 FROM golang:1.17-alpine
 
-RUN apk add --update --no-cache ca-certificates graphviz
+RUN apk add --update --no-cache ca-certificates graphviz perl
 
 WORKDIR $GOPATH/src/github.com/segmentio/pprof-server
 
