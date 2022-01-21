@@ -1,4 +1,4 @@
-FROM golang:1.17-alpine
+FROM 528451384384.dkr.ecr.us-west-2.amazonaws.com/segment-golang:1.17.3
 
 RUN apk add --update --no-cache ca-certificates graphviz perl
 
