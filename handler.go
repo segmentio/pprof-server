@@ -25,6 +25,7 @@ type Handler struct {
 }
 
 func (h *Handler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
+	fmt.Println("in serve http handler")
 	header := res.Header()
 	header.Set("Content-Language", "en")
 	header.Set("Server", "pprof-server")
@@ -38,7 +39,7 @@ func (h *Handler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 
 	switch path := req.URL.Path; {
 	case path == "/", path == "/services":
-		if h.Registry.String() == "kubernetes" {
+		if h.Registry != nil && h.Registry.String() == "kubernetes" {
 			h.serveRedirect(res, req, "/pods/")
 		} else {
 			h.serveRedirect(res, req, "/services/")
