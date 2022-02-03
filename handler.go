@@ -25,7 +25,6 @@ type Handler struct {
 }
 
 func (h *Handler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
-	fmt.Println("in serve http handler")
 	header := res.Header()
 	header.Set("Content-Language", "en")
 	header.Set("Server", "pprof-server")

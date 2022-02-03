@@ -6,11 +6,38 @@ var listServices = htmlTemplate("listServices", `
 <html>
 <head>
 	<title>Service List</title>
-	<style>a {text-decoration: none;}</style>
+	<style>
+		.service-list a {
+			text-decoration: none;
+		}
+		
+		/* 
+		 * Alert box styles copied from Bootstrap, which has a MIT license:
+		 * https://github.com/twbs/bootstrap/blob/main/LICENSE
+		 */
+		.alert {
+			position: relative;
+			padding: 0.75rem 1.25rem;
+			margin-bottom: 1rem;
+			border: 1px solid transparent;
+			border-radius: 0.25rem;
+		}
+
+		.alert-danger {
+			color: #721c24;
+			background-color: #f8d7da;
+			border-color: #f5c6cb;
+		}
+	</style>
 </head>
 <body>
-	<ul>{{ range . }}
-		<li><a href="{{ .Href }}">{{ .Name }}</a></li>
+	<div class="alert alert-danger">
+		EKS services are not listed here.<br /><br />
+		Use <a href="https://github.com/segmentio/kubectl-curl#collecting-profiles-of-go-programs">kubectl-curl</a> 
+		to download profiles for EKS services.
+	</div>
+	<ul class="service-list">{{ range . }}
+		<li><a title="{{ .Name }}" href="{{ .Href }}">{{ .Name }}</a></li>
 	{{ end }}</ul>
 </body>
 </html>
