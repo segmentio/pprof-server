@@ -1,0 +1,15 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: pprof-server
+  description: Web server exposing performance profiles of Go services.
+  annotations:
+    github.com/project-slug: segmentio/pprof-server
+    buildkite.com/project-slug: segment/pprof-server
+    segment.io/security-tier: "0"
+  tags: 
+    - go
+spec:
+  type: service
+  lifecycle: production
+  owner: sre-compute
