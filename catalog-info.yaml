@@ -6,7 +6,7 @@ metadata:
   annotations:
     github.com/project-slug: segmentio/pprof-server
     buildkite.com/project-slug: segment/pprof-server
-    segment.io/security-tier: "0"
+    segment.io/security-tier: "2"
   tags: 
     - go
 spec:
