@@ -12,4 +12,4 @@ metadata:
 spec:
   type: service
   lifecycle: production
-  owner: sre-compute
+  owner: infra-compute-us
