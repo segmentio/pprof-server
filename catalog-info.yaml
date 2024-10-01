@@ -7,9 +7,19 @@ metadata:
     github.com/project-slug: segmentio/pprof-server
     buildkite.com/project-slug: segment/pprof-server
     segment.io/security-tier: "2"
+    twilio.com/eu-available: "true"
+    twilio.com/sla-impacting: "false"
+    twilio.com/in-scope-gdpr: "false"
+    twilio.com/in-scope-bcr: "false"
+    twilio.com/in-scope-hipaa: "false"
+    twilio.com/in-scope-sox: "false"
+    twilio.com/in-scope-soc2: "false"
+    twilio.com/in-scope-pci: "false"
+    twilio.com/in-scope-iso: "false"
+    twilio.com/data_classification: confidential
   tags: 
     - go
 spec:
   type: service
-  lifecycle: production
+  lifecycle: experimental
   owner: infra-compute-us

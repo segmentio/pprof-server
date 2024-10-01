@@ -5,7 +5,7 @@ commit ?= $(shell git rev-parse --short=7 HEAD)
 all: test pprof-server
 
 test:
-	go test ./...
+	go test -race -coverprofile=coverage.out ./...
 
 clean:
 	rm -f pprof-server
