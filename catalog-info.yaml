@@ -16,7 +16,7 @@ metadata:
     twilio.com/in-scope-soc2: "false"
     twilio.com/in-scope-pci: "false"
     twilio.com/in-scope-iso: "false"
-    twilio.com/data_classification: confidential
+    twilio.com/data-classification: confidential
   tags: 
     - go
 spec:
